@@ -38,12 +38,14 @@ onMounted(() => {
         Discover our premium selection of mechanical keyboard switches and keycaps, designed for
         enthusiasts and professionals alike.
       </p>
-      <button
-        class="bg-primary text-white font-bold h-12 px-6 rounded-lg hover:bg-primary/90 transition-all text-base animate-on-load animate-fade-in-up shadow-lg hover:shadow-xl"
-        style="animation-delay: 0.6s"
-      >
-        Browse Products
-      </button>
+      <router-link to="/products">
+        <button
+          class="bg-primary text-white font-bold h-12 px-6 rounded-lg hover:bg-primary/90 transition-all text-base animate-on-load animate-fade-in-up shadow-lg hover:shadow-xl"
+          style="animation-delay: 0.6s"
+        >
+          Browse Products
+        </button>
+      </router-link>
     </div>
   </div>
 </template>

@@ -13,26 +13,14 @@
     </div>
 
     <nav class="hidden md:flex items-center gap-8">
-      <a
-        href="#"
+      <router-link
+        to="/products"
         class="text-sm font-medium text-stone-600 dark:text-stone-300 hover:text-primary dark:hover:text-primary transition-colors"
-        >Switches</a
       >
-      <a
-        href="#"
-        class="text-sm font-medium text-stone-600 dark:text-stone-300 hover:text-primary dark:hover:text-primary transition-colors"
-        >Keycaps</a
-      >
-      <a
-        href="#"
-        class="text-sm font-medium text-stone-600 dark:text-stone-300 hover:text-primary dark:hover:text-primary transition-colors"
-        >About Us</a
-      >
-      <a
-        href="#"
-        class="text-sm font-medium text-stone-600 dark:text-stone-300 hover:text-primary dark:hover:text-primary transition-colors"
-        >Contact</a
-      >
+        Shop All
+      </router-link>
+      <a href="#" class="...">About Us</a>
+      <a href="#" class="...">Contact</a>
     </nav>
 
     <div class="flex items-center gap-2">
