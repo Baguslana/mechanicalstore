@@ -1,44 +1,119 @@
 <script setup>
-import { ref } from 'vue'
+import { ref, onMounted } from 'vue'
+import { useRouter } from 'vue-router'
+import { productsApi } from '../services/api'
 
-const products = ref([
-  {
-    id: 1,
-    name: 'New Switch Model',
-    description: 'Experience the latest in switch technology.',
-    image:
-      'https://lh3.googleusercontent.com/aida-public/AB6AXuAwLyS9HF2hrxhrIemxFpxgC_cVWV9uod3_AbYqbUQji4r0hxk8wEZYjcAYjAAEmmYyGTKcumYrKoHbdEmU1YmwwuYIGUtkOZScMbRIF3GgN3_RQMHigfkP4Kmx-IoguG4mvW0ijEKE3WJmG_AxaZlNcaJO4cHDczorp5CmJUyiMqle-_vRvbuE0ekCCi8oB8XNEyVWfM00WkbNZiH4dgRyCzP_C3Mmmi0mPft-QfuIpIHH9kvYCpzXkKxeKmOcHSu8p9OPmRf0rdo',
-  },
-  {
-    id: 2,
-    name: 'Artisan Keycap',
-    description: 'Add a unique touch to your keyboard.',
-    image:
-      'https://lh3.googleusercontent.com/aida-public/AB6AXuADrQ7SuDJXbxbVgQ3apHeNXRDutIEOgIl54ks9Pf2lMhFB6sZsml7m63gu_1Vz4JL7OhoZ9P1Nbis4luHNDSPBaIBcW8oBkk5MXd1PotQp8C8IBARDP3_niTjgjfh5Zk-TFSy1Q8OpEInu1XeeYT4xGHVFX9GDQ8prnZpQve6KNj9_6iADbv2_Drhk12svrMhxPq6PY_6YHulEEPWJdMVZoxd5eMf5yix-caKv52raFN6MAEV9iZcyTG3XSExtujGzOnv9R3bjtvE',
-  },
-])
+const router = useRouter()
+const products = ref([])
+const loading = ref(false)
+
+onMounted(async () => {
+  loading.value = true
+  try {
+    const data = await productsApi.getAll({
+      sortBy: 'created_at',
+      sortOrder: 'desc',
+    })
+    // Get latest 4 products
+    products.value = (Array.isArray(data) ? data : data.data || []).slice(0, 4)
+  } catch (error) {
+    console.error('Error loading new arrivals:', error)
+  } finally {
+    loading.value = false
+  }
+})
+
+const formatPrice = (price) => {
+  return new Intl.NumberFormat('id-ID', {
+    style: 'currency',
+    currency: 'IDR',
+    minimumFractionDigits: 0,
+  }).format(price)
+}
+
+const viewProduct = (slug) => {
+  router.push(`/products/${slug}`)
+}
 </script>
 
 <template>
-  <section class="py-12 md:py-16">
-    <h2 class="text-2xl md:text-3xl font-bold tracking-tight text-stone-900 dark:text-white mb-6">
-      New Arrivals
-    </h2>
-    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-2 gap-6">
+  <section class="mt-16">
+    <div class="flex items-center justify-between mb-8">
+      <div>
+        <h2 class="text-3xl font-bold text-stone-900 dark:text-white mb-2">New Arrivals</h2>
+        <p class="text-stone-600 dark:text-stone-400">Check out our latest products</p>
+      </div>
+      <button
+        @click="router.push('/products')"
+        class="text-primary hover:text-primary/80 font-medium flex items-center gap-2 transition-colors"
+      >
+        <span>View All</span>
+        <span class="material-symbols-outlined">arrow_forward</span>
+      </button>
+    </div>
+
+    <!-- Loading State -->
+    <div v-if="loading" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+      <div
+        v-for="i in 4"
+        :key="i"
+        class="animate-pulse bg-stone-200 dark:bg-stone-800 rounded-xl h-96"
+      ></div>
+    </div>
+
+    <!-- Products Grid -->
+    <div
+      v-else-if="products.length > 0"
+      class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6"
+    >
       <div
         v-for="product in products"
         :key="product.id"
-        class="bg-background-light dark:bg-stone-900/50 rounded-lg overflow-hidden group border border-stone-200 dark:border-stone-800 cursor-pointer hover:border-primary dark:hover:border-primary transition-colors"
+        @click="viewProduct(product.slug)"
+        class="group bg-white dark:bg-stone-900 rounded-xl overflow-hidden border border-stone-200 dark:border-stone-800 hover:border-primary/50 transition-all hover:shadow-xl cursor-pointer"
       >
-        <div
-          class="w-full h-64 bg-cover bg-center group-hover:scale-105 transition-transform duration-300"
-          :style="{ backgroundImage: `url('${product.image}')` }"
-        ></div>
+        <!-- Image -->
+        <div class="relative aspect-square overflow-hidden bg-stone-100 dark:bg-stone-800">
+          <img
+            :src="product.image"
+            :alt="product.name"
+            class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+          />
+          <div
+            class="absolute top-3 left-3 bg-primary text-white text-xs font-bold px-3 py-1 rounded-full"
+          >
+            NEW
+          </div>
+        </div>
+
+        <!-- Info -->
         <div class="p-4">
-          <h3 class="font-bold text-lg text-stone-900 dark:text-white">{{ product.name }}</h3>
-          <p class="text-sm text-stone-600 dark:text-stone-400">{{ product.description }}</p>
+          <h3 class="font-bold text-stone-900 dark:text-white mb-2 line-clamp-1">
+            {{ product.name }}
+          </h3>
+          <p class="text-sm text-stone-600 dark:text-stone-400 mb-3 line-clamp-2">
+            {{ product.description }}
+          </p>
+          <div class="flex items-center justify-between">
+            <span class="text-lg font-bold text-primary">
+              {{ formatPrice(product.price) }}
+            </span>
+            <span
+              class="material-symbols-outlined text-stone-400 group-hover:text-primary transition-colors"
+            >
+              arrow_forward
+            </span>
+          </div>
         </div>
       </div>
+    </div>
+
+    <!-- Empty State -->
+    <div v-else class="text-center py-16">
+      <span class="material-symbols-outlined text-6xl text-stone-300 dark:text-stone-700 mb-4">
+        inventory_2
+      </span>
+      <p class="text-stone-600 dark:text-stone-400">No new arrivals yet</p>
     </div>
   </section>
 </template>

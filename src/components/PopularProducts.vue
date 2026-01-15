@@ -1,58 +1,124 @@
 <script setup>
-import { ref } from 'vue'
+import { ref, onMounted } from 'vue'
+import { useRouter } from 'vue-router'
+import { productsApi } from '../services/api'
 
-const products = ref([
-  {
-    id: 1,
-    name: 'Tactile Switches',
-    description: 'For a satisfying bump.',
-    image:
-      'https://lh3.googleusercontent.com/aida-public/AB6AXuCV5S5YOK0J_tYhOtslEqAr_nFD6YMifpBTCyaxcmBaqzG00aVuUT0vr51HKhT7daySR5S1QRsNqd0fO9Kff2yIEoC1loni8b5vLV1uLBHfOAwzTj_qKaBgqPC2iBJlAItVUhKjFMNjnWFISLc_LscT2-gf098b9Qg2VA7Y9IFa3VgX4RFa5Rd0MXr0q3NpIX99Rsr5WWBO4QY8dLKO5fD4m9AhKTxNVRi_exa4dYQeoCnHLLRPFGabShmI1mm1WJlQk4ESjTIvA_o',
-  },
-  {
-    id: 2,
-    name: 'Linear Switches',
-    description: 'Smooth and consistent.',
-    image:
-      'https://lh3.googleusercontent.com/aida-public/AB6AXuCPrAsYrvyDctFUulBmcbFe4FwooRe0TP8vQCl8gjXkntRLxIXFy0B6PQx3G65mR6n6D17ze0-7Z_wOqsXtwiOQgi3AX6RQxD9TkWjoOxh9hle7TNRUtAFwmiZ6WJp05MBlNoLCwtxvirGE5JwVK9m7HUDrj5zoge4dkUC_i04IhaJBGUWI3ANiyqIgn09QigsuMtdvP8QZzLHdJFj3o705xxl5R4Vlb7VeRgPk3J2DmUq04MGg0p9g3H1hKc61ax5w5f48jUX21iM',
-  },
-  {
-    id: 3,
-    name: 'Sculpted Keycaps',
-    description: 'Ergonomic for comfort.',
-    image:
-      'https://lh3.googleusercontent.com/aida-public/AB6AXuDS6Z3_j9_GhtTb2kZpUY4Rdm6nVj0QE5O1u7Vc6CU6Op_8hm3ocHlAxpqh1gdy0K1GvQrBaj5yk-uje9Tvz7yReFztNhypQT0Zv7qAv9vP8OVGDgqtVUedelHR3OUPE5fIMYEzrbrbswuiA6FaAH2rFivgroviVR4Ak-6MbMlz3YnrZ23fiHiVt-rjUnWkoVWJMyma-Z_zuzKu7ZZ_TSsoc8SYLyfATEqcxegM1Ex1d1AI0Vl2jGMpMZsM_EtHcr8QRddmLypvY4o',
-  },
-  {
-    id: 4,
-    name: 'PBT Keycaps',
-    description: 'Durable and textured.',
-    image:
-      'https://lh3.googleusercontent.com/aida-public/AB6AXuCfXH-tuFmG3EuagbSn4yFpyb3vZNr4g6B9LkUUpEg4BIJ98fpS7GZsHgquBw03CwdbJieKsRTf4bHrp8DPP1ZFfDvp3G9UYW9NcJpO9UN68FR_SMf0UKmSdGYf6CO5pvlVzcRjZsgijPblgcFQfCs6v2MvYGJjrMtVPPwamj2w8d982N0N5v2cy_KGESIdkTgWq4o9dNGL-S8q_uun6aQF0jiIbPZ1zq4ByeDxGaOa9DfARqm31mymzGv-P0nU61I6gfiMpQDyuAU',
-  },
-])
+const router = useRouter()
+const products = ref([])
+const loading = ref(false)
+
+onMounted(async () => {
+  loading.value = true
+  try {
+    const data = await productsApi.getAll({
+      inStockOnly: true,
+    })
+    // Get random 6 products as "popular" (or implement actual popularity logic)
+    const allProducts = Array.isArray(data) ? data : data.data || []
+    products.value = allProducts.sort(() => 0.5 - Math.random()).slice(0, 6)
+  } catch (error) {
+    console.error('Error loading popular products:', error)
+  } finally {
+    loading.value = false
+  }
+})
+
+const formatPrice = (price) => {
+  return new Intl.NumberFormat('id-ID', {
+    style: 'currency',
+    currency: 'IDR',
+    minimumFractionDigits: 0,
+  }).format(price)
+}
+
+const viewProduct = (slug) => {
+  router.push(`/products/${slug}`)
+}
 </script>
 
 <template>
-  <section class="py-12 md:py-16">
-    <h2 class="text-2xl md:text-3xl font-bold tracking-tight text-stone-900 dark:text-white mb-6">
-      Popular Products
-    </h2>
-    <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
+  <section class="mt-16">
+    <div class="flex items-center justify-between mb-8">
+      <div>
+        <h2 class="text-3xl font-bold text-stone-900 dark:text-white mb-2">Popular Products</h2>
+        <p class="text-stone-600 dark:text-stone-400">Trending in our store</p>
+      </div>
+      <button
+        @click="router.push('/products')"
+        class="text-primary hover:text-primary/80 font-medium flex items-center gap-2 transition-colors"
+      >
+        <span>View All</span>
+        <span class="material-symbols-outlined">arrow_forward</span>
+      </button>
+    </div>
+
+    <!-- Loading State -->
+    <div v-if="loading" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+      <div
+        v-for="i in 6"
+        :key="i"
+        class="animate-pulse bg-stone-200 dark:bg-stone-800 rounded-xl h-80"
+      ></div>
+    </div>
+
+    <!-- Products Grid -->
+    <div
+      v-else-if="products.length > 0"
+      class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6"
+    >
       <div
         v-for="product in products"
         :key="product.id"
-        class="bg-background-light dark:bg-stone-900/50 rounded-lg overflow-hidden group border border-stone-200 dark:border-stone-800 cursor-pointer hover:border-primary dark:hover:border-primary transition-colors"
+        @click="viewProduct(product.slug)"
+        class="group bg-white dark:bg-stone-900 rounded-xl overflow-hidden border border-stone-200 dark:border-stone-800 hover:border-primary/50 transition-all hover:shadow-xl cursor-pointer"
       >
-        <div
-          class="w-full aspect-square bg-cover bg-center group-hover:scale-105 transition-transform duration-300"
-          :style="{ backgroundImage: `url('${product.image}')` }"
-        ></div>
+        <!-- Image -->
+        <div class="relative h-48 overflow-hidden bg-stone-100 dark:bg-stone-800">
+          <img
+            :src="product.image"
+            :alt="product.name"
+            class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+          />
+          <div
+            class="absolute top-3 right-3 bg-white/90 dark:bg-stone-800/90 backdrop-blur-sm text-stone-700 dark:text-stone-300 text-xs font-medium px-3 py-1 rounded-full"
+          >
+            {{ product.category.name }}
+          </div>
+        </div>
+
+        <!-- Info -->
         <div class="p-4">
-          <h3 class="font-bold text-base text-stone-900 dark:text-white">{{ product.name }}</h3>
-          <p class="text-sm text-stone-600 dark:text-stone-400">{{ product.description }}</p>
+          <h3 class="font-bold text-stone-900 dark:text-white mb-2 line-clamp-1">
+            {{ product.name }}
+          </h3>
+          <p class="text-sm text-stone-600 dark:text-stone-400 mb-4 line-clamp-2">
+            {{ product.description }}
+          </p>
+          <div
+            class="flex items-center justify-between pt-3 border-t border-stone-200 dark:border-stone-800"
+          >
+            <span class="text-xl font-bold text-primary">
+              {{ formatPrice(product.price) }}
+            </span>
+            <span class="flex items-center gap-1 text-sm text-stone-500 dark:text-stone-400">
+              <span
+                class="material-symbols-outlined text-lg group-hover:text-primary transition-colors"
+              >
+                trending_up
+              </span>
+              Popular
+            </span>
+          </div>
         </div>
       </div>
+    </div>
+
+    <!-- Empty State -->
+    <div v-else class="text-center py-16">
+      <span class="material-symbols-outlined text-6xl text-stone-300 dark:text-stone-700 mb-4">
+        inventory_2
+      </span>
+      <p class="text-stone-600 dark:text-stone-400">No popular products yet</p>
     </div>
   </section>
 </template>
