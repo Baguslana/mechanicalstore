@@ -1,24 +1,45 @@
 <script setup>
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, watch } from 'vue'
+import { useRouter, useRoute } from 'vue-router'
 import Header from '../components/Header.vue'
 import FilterSidebar from '../components/FilterSidebar.vue'
 import ProductCard from '../components/ProductCard.vue'
-import { products, priceRanges } from '../data/products.js'
+import { productsApi, categoriesApi } from '../services/api'
+
+const router = useRouter()
+const route = useRoute()
+
+// State
+const products = ref([])
+const categories = ref([])
+const loading = ref(false)
+const error = ref(null)
 
 // Filter states
 const selectedCategory = ref('All Products')
 const selectedSize = ref('All Sizes')
 const selectedSwitchType = ref('All Types')
-const selectedPriceRange = ref(priceRanges[0])
+const selectedPriceRange = ref({ label: 'All Prices', min: 0, max: Infinity })
 const showInStockOnly = ref(false)
 const searchQuery = ref('')
-const sortBy = ref('featured')
+const sortBy = ref('created_at')
+const sortOrder = ref('desc')
 const showMobileFilters = ref(false)
 
 // Animation
 const pageRef = ref(null)
 
-onMounted(() => {
+onMounted(async () => {
+  // Load categories
+  await loadCategories()
+
+  // Load filters from URL query params
+  loadFiltersFromURL()
+
+  // Load products
+  await fetchProducts()
+
+  // Animate on load
   setTimeout(() => {
     const animatedElements = pageRef.value?.querySelectorAll('.animate-on-load')
     animatedElements?.forEach((el) => {
@@ -27,66 +48,135 @@ onMounted(() => {
   }, 100)
 })
 
-// Filtered products
-const filteredProducts = computed(() => {
-  let filtered = [...products]
-
-  // Category filter
-  if (selectedCategory.value !== 'All Products') {
-    filtered = filtered.filter((p) => p.category === selectedCategory.value)
+// Load categories from API
+const loadCategories = async () => {
+  try {
+    const data = await categoriesApi.getAll()
+    categories.value = data
+  } catch (err) {
+    console.error('Error loading categories:', err)
   }
+}
 
-  // Size filter
-  if (selectedSize.value !== 'All Sizes') {
-    filtered = filtered.filter((p) => p.size === selectedSize.value)
+// Load filters from URL
+const loadFiltersFromURL = () => {
+  if (route.query.category) selectedCategory.value = route.query.category
+  if (route.query.size) selectedSize.value = route.query.size
+  if (route.query.switch_type) selectedSwitchType.value = route.query.switch_type
+  if (route.query.in_stock_only) showInStockOnly.value = route.query.in_stock_only === '1'
+  if (route.query.search) searchQuery.value = route.query.search
+  if (route.query.sort_by) sortBy.value = route.query.sort_by
+  if (route.query.sort_order) sortOrder.value = route.query.sort_order
+}
+
+// Update URL when filters change
+const updateURL = () => {
+  const query = {}
+  if (selectedCategory.value !== 'All Products') query.category = selectedCategory.value
+  if (selectedSize.value !== 'All Sizes') query.size = selectedSize.value
+  if (selectedSwitchType.value !== 'All Types') query.switch_type = selectedSwitchType.value
+  if (showInStockOnly.value) query.in_stock_only = '1'
+  if (searchQuery.value) query.search = searchQuery.value
+  if (sortBy.value !== 'created_at') query.sort_by = sortBy.value
+  if (sortOrder.value !== 'desc') query.sort_order = sortOrder.value
+
+  router.replace({ query })
+}
+
+// Fetch products from API
+const fetchProducts = async () => {
+  loading.value = true
+  error.value = null
+
+  try {
+    const filters = {
+      category: selectedCategory.value !== 'All Products' ? selectedCategory.value : null,
+      size: selectedSize.value !== 'All Sizes' ? selectedSize.value : null,
+      switchType: selectedSwitchType.value !== 'All Types' ? selectedSwitchType.value : null,
+      minPrice: selectedPriceRange.value.min || null,
+      maxPrice: selectedPriceRange.value.max !== Infinity ? selectedPriceRange.value.max : null,
+      inStockOnly: showInStockOnly.value,
+      search: searchQuery.value || null,
+      sortBy: sortBy.value,
+      sortOrder: sortOrder.value,
+    }
+
+    const data = await productsApi.getAll(filters)
+    products.value = Array.isArray(data) ? data : data.data || []
+
+    // Update URL
+    updateURL()
+  } catch (err) {
+    error.value = 'Failed to load products. Please try again.'
+    console.error('Error fetching products:', err)
+  } finally {
+    loading.value = false
   }
+}
 
-  // Switch type filter
-  if (selectedSwitchType.value !== 'All Types') {
-    filtered = filtered.filter((p) => p.switchType === selectedSwitchType.value)
-  }
+// Watch filters and refetch
+watch(
+  [selectedCategory, selectedSize, selectedSwitchType, selectedPriceRange, showInStockOnly],
+  () => {
+    fetchProducts()
+  },
+)
 
-  // Price range filter
-  filtered = filtered.filter(
-    (p) => p.price >= selectedPriceRange.value.min && p.price <= selectedPriceRange.value.max,
-  )
+// Debounced search
+let searchTimeout
+watch(searchQuery, () => {
+  clearTimeout(searchTimeout)
+  searchTimeout = setTimeout(() => {
+    fetchProducts()
+  }, 500) // 500ms debounce
+})
 
-  // Stock filter
-  if (showInStockOnly.value) {
-    filtered = filtered.filter((p) => p.inStock)
-  }
-
-  // Search filter
-  if (searchQuery.value) {
-    const query = searchQuery.value.toLowerCase()
-    filtered = filtered.filter(
-      (p) =>
-        p.name.toLowerCase().includes(query) ||
-        p.description.toLowerCase().includes(query) ||
-        p.category.toLowerCase().includes(query),
-    )
-  }
-
-  // Sort
-  if (sortBy.value === 'price-low') {
-    filtered.sort((a, b) => a.price - b.price)
-  } else if (sortBy.value === 'price-high') {
-    filtered.sort((a, b) => b.price - a.price)
-  } else if (sortBy.value === 'name') {
-    filtered.sort((a, b) => a.name.localeCompare(b.name))
-  }
-
-  return filtered
+// Watch sort changes
+watch([sortBy, sortOrder], () => {
+  fetchProducts()
 })
 
 const clearFilters = () => {
   selectedCategory.value = 'All Products'
   selectedSize.value = 'All Sizes'
   selectedSwitchType.value = 'All Types'
-  selectedPriceRange.value = priceRanges[0]
+  selectedPriceRange.value = { label: 'All Prices', min: 0, max: Infinity }
   showInStockOnly.value = false
   searchQuery.value = ''
 }
+
+// Convert sort select value to sortBy and sortOrder
+const handleSortChange = (value) => {
+  switch (value) {
+    case 'price-low':
+      sortBy.value = 'price'
+      sortOrder.value = 'asc'
+      break
+    case 'price-high':
+      sortBy.value = 'price'
+      sortOrder.value = 'desc'
+      break
+    case 'name':
+      sortBy.value = 'name'
+      sortOrder.value = 'asc'
+      break
+    case 'newest':
+      sortBy.value = 'created_at'
+      sortOrder.value = 'desc'
+      break
+    default:
+      sortBy.value = 'created_at'
+      sortOrder.value = 'desc'
+  }
+}
+
+const sortValue = computed(() => {
+  if (sortBy.value === 'price' && sortOrder.value === 'asc') return 'price-low'
+  if (sortBy.value === 'price' && sortOrder.value === 'desc') return 'price-high'
+  if (sortBy.value === 'name') return 'name'
+  if (sortBy.value === 'created_at') return 'newest'
+  return 'newest'
+})
 </script>
 
 <template>
@@ -140,10 +230,11 @@ const clearFilters = () => {
         <!-- Sort & Mobile Filter Toggle -->
         <div class="flex gap-3">
           <select
-            v-model="sortBy"
+            :value="sortValue"
+            @change="handleSortChange($event.target.value)"
             class="h-12 px-4 rounded-lg border border-stone-200 dark:border-stone-800 bg-white dark:bg-stone-900 text-stone-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
           >
-            <option value="featured">Featured</option>
+            <option value="newest">Newest</option>
             <option value="price-low">Price: Low to High</option>
             <option value="price-high">Price: High to Low</option>
             <option value="name">Name: A to Z</option>
@@ -227,21 +318,43 @@ const clearFilters = () => {
             style="animation-delay: 0.6s"
           >
             <p class="text-sm text-stone-600 dark:text-stone-400">
-              Showing
-              <span class="font-bold text-stone-900 dark:text-white">{{
-                filteredProducts.length
-              }}</span>
-              products
+              <span v-if="loading">Loading...</span>
+              <span v-else>
+                Showing
+                <span class="font-bold text-stone-900 dark:text-white">{{ products.length }}</span>
+                products
+              </span>
             </p>
+          </div>
+
+          <!-- Error State -->
+          <div v-if="error" class="text-center py-16">
+            <span class="material-symbols-outlined text-6xl text-red-500 mb-4">error</span>
+            <h3 class="text-xl font-bold text-stone-900 dark:text-white mb-2">{{ error }}</h3>
+            <button
+              @click="fetchProducts"
+              class="bg-primary text-white font-medium px-6 py-3 rounded-lg hover:bg-primary/90 transition-colors"
+            >
+              Try Again
+            </button>
+          </div>
+
+          <!-- Loading State -->
+          <div v-else-if="loading" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+            <div
+              v-for="i in 6"
+              :key="i"
+              class="animate-pulse bg-stone-200 dark:bg-stone-800 rounded-xl h-96"
+            ></div>
           </div>
 
           <!-- Products Grid -->
           <div
-            v-if="filteredProducts.length > 0"
+            v-else-if="products.length > 0"
             class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 animate-on-load animate-fade-in"
             style="animation-delay: 0.7s"
           >
-            <ProductCard v-for="product in filteredProducts" :key="product.id" :product="product" />
+            <ProductCard v-for="product in products" :key="product.id" :product="product" />
           </div>
 
           <!-- No Results -->
