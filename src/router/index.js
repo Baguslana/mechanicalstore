@@ -2,6 +2,7 @@ import { createRouter, createWebHistory } from 'vue-router'
 import { useAdminStore } from '../stores/admin'
 import HomeView from '../views/HomeView.vue'
 import ProductsView from '../views/ProductsView.vue'
+import ProductDetailView from '../views/ProductDetailView.vue'
 import AdminLoginView from '../views/AdminLoginView.vue'
 import AdminLayout from '../views/AdminLayout.vue'
 import AdminProductsView from '../views/AdminProductsView.vue'
@@ -18,6 +19,11 @@ const router = createRouter({
       path: '/products',
       name: 'products',
       component: ProductsView,
+    },
+    {
+      path: '/products/:slug',
+      name: 'product-detail',
+      component: ProductDetailView,
     },
     {
       path: '/admin/login',

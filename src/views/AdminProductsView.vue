@@ -1,10 +1,12 @@
 <script setup>
 import { ref, onMounted, computed } from 'vue'
 import { productsApi, categoriesApi } from '../services/api'
+import api from '../services/api'
 
 const products = ref([])
 const categories = ref([])
 const loading = ref(false)
+const formLoading = ref(false)
 const searchQuery = ref('')
 const selectedCategory = ref('All Products')
 
@@ -77,13 +79,15 @@ const openCreateModal = () => {
 const openEditModal = (product) => {
   modalMode.value = 'edit'
   editingProduct.value = product
+
+  // Get category ID from product
+  const categoryId =
+    categories.value.find((c) => c.name === product.category.name)?.id || product.category.id
+
   form.value = {
     name: product.name,
     slug: product.slug,
-    category_id:
-      product.category.id ||
-      categories.value.find((c) => c.name === product.category.name)?.id ||
-      '',
+    category_id: categoryId,
     price: product.price,
     image: product.image,
     description: product.description,
@@ -96,6 +100,7 @@ const openEditModal = (product) => {
 const closeModal = () => {
   showModal.value = false
   editingProduct.value = null
+  formLoading.value = false
 }
 
 const generateSlug = () => {
@@ -108,10 +113,46 @@ const generateSlug = () => {
 }
 
 const handleSubmit = async () => {
-  // TODO: Implement API call to create/update product
-  console.log('Submit form:', form.value)
-  alert('Feature will be implemented with Laravel API endpoints')
-  closeModal()
+  formLoading.value = true
+
+  try {
+    if (modalMode.value === 'create') {
+      // Create new product
+      const response = await api.post('/admin/products', form.value)
+
+      if (response.data.success) {
+        alert('✅ Product created successfully!')
+        await loadProducts()
+        closeModal()
+      } else {
+        alert('❌ Failed to create product: ' + response.data.message)
+      }
+    } else {
+      // Update existing product
+      const response = await api.put(`/admin/products/${editingProduct.value.id}`, form.value)
+
+      if (response.data.success) {
+        alert('✅ Product updated successfully!')
+        await loadProducts()
+        closeModal()
+      } else {
+        alert('❌ Failed to update product: ' + response.data.message)
+      }
+    }
+  } catch (error) {
+    console.error('Error submitting form:', error)
+    const errorMessage = error.response?.data?.message || error.message
+    const errors = error.response?.data?.errors
+
+    if (errors) {
+      const errorList = Object.values(errors).flat().join('\n')
+      alert('❌ Validation Error:\n' + errorList)
+    } else {
+      alert('❌ Error: ' + errorMessage)
+    }
+  } finally {
+    formLoading.value = false
+  }
 }
 
 const handleDelete = async (product) => {
@@ -119,9 +160,19 @@ const handleDelete = async (product) => {
     return
   }
 
-  // TODO: Implement API call to delete product
-  console.log('Delete product:', product.id)
-  alert('Delete feature will be implemented with Laravel API')
+  try {
+    const response = await api.delete(`/admin/products/${product.id}`)
+
+    if (response.data.success) {
+      alert('✅ ' + response.data.message)
+      await loadProducts()
+    } else {
+      alert('❌ Failed to delete product: ' + response.data.message)
+    }
+  } catch (error) {
+    console.error('Error deleting product:', error)
+    alert('❌ Error: ' + (error.response?.data?.message || error.message))
+  }
 }
 
 const formatPrice = (price) => {
@@ -342,7 +393,8 @@ const formatPrice = (price) => {
             </h3>
             <button
               @click="closeModal"
-              class="h-10 w-10 flex items-center justify-center rounded-lg hover:bg-stone-100 dark:hover:bg-stone-800 text-stone-700 dark:text-stone-300"
+              :disabled="formLoading"
+              class="h-10 w-10 flex items-center justify-center rounded-lg hover:bg-stone-100 dark:hover:bg-stone-800 text-stone-700 dark:text-stone-300 disabled:opacity-50"
             >
               <span class="material-symbols-outlined">close</span>
             </button>
@@ -360,8 +412,9 @@ const formatPrice = (price) => {
                 @input="generateSlug"
                 type="text"
                 required
+                :disabled="formLoading"
                 placeholder="e.g., TOFU65 Acrylic"
-                class="w-full px-4 py-3 rounded-lg border border-stone-200 dark:border-stone-800 bg-white dark:bg-stone-800 text-stone-900 dark:text-white placeholder-stone-400 focus:outline-none focus:ring-2 focus:ring-primary"
+                class="w-full px-4 py-3 rounded-lg border border-stone-200 dark:border-stone-800 bg-white dark:bg-stone-800 text-stone-900 dark:text-white placeholder-stone-400 focus:outline-none focus:ring-2 focus:ring-primary disabled:opacity-50"
               />
             </div>
 
@@ -374,8 +427,9 @@ const formatPrice = (price) => {
                 v-model="form.slug"
                 type="text"
                 required
+                :disabled="formLoading"
                 placeholder="e.g., tofu65-acrylic"
-                class="w-full px-4 py-3 rounded-lg border border-stone-200 dark:border-stone-800 bg-white dark:bg-stone-800 text-stone-900 dark:text-white placeholder-stone-400 focus:outline-none focus:ring-2 focus:ring-primary"
+                class="w-full px-4 py-3 rounded-lg border border-stone-200 dark:border-stone-800 bg-white dark:bg-stone-800 text-stone-900 dark:text-white placeholder-stone-400 focus:outline-none focus:ring-2 focus:ring-primary disabled:opacity-50"
               />
             </div>
 
@@ -388,7 +442,8 @@ const formatPrice = (price) => {
                 <select
                   v-model="form.category_id"
                   required
-                  class="w-full px-4 py-3 rounded-lg border border-stone-200 dark:border-stone-800 bg-white dark:bg-stone-800 text-stone-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-primary"
+                  :disabled="formLoading"
+                  class="w-full px-4 py-3 rounded-lg border border-stone-200 dark:border-stone-800 bg-white dark:bg-stone-800 text-stone-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-primary disabled:opacity-50"
                 >
                   <option value="">Select category</option>
                   <option v-for="category in categories" :key="category.id" :value="category.id">
@@ -405,8 +460,9 @@ const formatPrice = (price) => {
                   type="number"
                   required
                   min="0"
+                  :disabled="formLoading"
                   placeholder="0"
-                  class="w-full px-4 py-3 rounded-lg border border-stone-200 dark:border-stone-800 bg-white dark:bg-stone-800 text-stone-900 dark:text-white placeholder-stone-400 focus:outline-none focus:ring-2 focus:ring-primary"
+                  class="w-full px-4 py-3 rounded-lg border border-stone-200 dark:border-stone-800 bg-white dark:bg-stone-800 text-stone-900 dark:text-white placeholder-stone-400 focus:outline-none focus:ring-2 focus:ring-primary disabled:opacity-50"
                 />
               </div>
             </div>
@@ -420,8 +476,9 @@ const formatPrice = (price) => {
                 v-model="form.image"
                 type="url"
                 required
+                :disabled="formLoading"
                 placeholder="https://example.com/image.jpg"
-                class="w-full px-4 py-3 rounded-lg border border-stone-200 dark:border-stone-800 bg-white dark:bg-stone-800 text-stone-900 dark:text-white placeholder-stone-400 focus:outline-none focus:ring-2 focus:ring-primary"
+                class="w-full px-4 py-3 rounded-lg border border-stone-200 dark:border-stone-800 bg-white dark:bg-stone-800 text-stone-900 dark:text-white placeholder-stone-400 focus:outline-none focus:ring-2 focus:ring-primary disabled:opacity-50"
               />
             </div>
 
@@ -433,9 +490,10 @@ const formatPrice = (price) => {
               <textarea
                 v-model="form.description"
                 required
+                :disabled="formLoading"
                 rows="4"
                 placeholder="Product description..."
-                class="w-full px-4 py-3 rounded-lg border border-stone-200 dark:border-stone-800 bg-white dark:bg-stone-800 text-stone-900 dark:text-white placeholder-stone-400 focus:outline-none focus:ring-2 focus:ring-primary resize-none"
+                class="w-full px-4 py-3 rounded-lg border border-stone-200 dark:border-stone-800 bg-white dark:bg-stone-800 text-stone-900 dark:text-white placeholder-stone-400 focus:outline-none focus:ring-2 focus:ring-primary resize-none disabled:opacity-50"
               ></textarea>
             </div>
 
@@ -450,8 +508,9 @@ const formatPrice = (price) => {
                   type="number"
                   required
                   min="0"
+                  :disabled="formLoading"
                   placeholder="0"
-                  class="w-full px-4 py-3 rounded-lg border border-stone-200 dark:border-stone-800 bg-white dark:bg-stone-800 text-stone-900 dark:text-white placeholder-stone-400 focus:outline-none focus:ring-2 focus:ring-primary"
+                  class="w-full px-4 py-3 rounded-lg border border-stone-200 dark:border-stone-800 bg-white dark:bg-stone-800 text-stone-900 dark:text-white placeholder-stone-400 focus:outline-none focus:ring-2 focus:ring-primary disabled:opacity-50"
                 />
               </div>
               <div>
@@ -464,7 +523,8 @@ const formatPrice = (price) => {
                   <input
                     v-model="form.in_stock"
                     type="checkbox"
-                    class="w-5 h-5 rounded border-stone-300 dark:border-stone-700 text-primary focus:ring-primary"
+                    :disabled="formLoading"
+                    class="w-5 h-5 rounded border-stone-300 dark:border-stone-700 text-primary focus:ring-primary disabled:opacity-50"
                   />
                   <span class="text-stone-900 dark:text-white font-medium">In Stock</span>
                 </label>
@@ -476,15 +536,20 @@ const formatPrice = (price) => {
               <button
                 type="button"
                 @click="closeModal"
-                class="flex-1 px-6 py-3 rounded-lg border border-stone-200 dark:border-stone-800 text-stone-700 dark:text-stone-300 font-medium hover:bg-stone-100 dark:hover:bg-stone-800 transition-colors"
+                :disabled="formLoading"
+                class="flex-1 px-6 py-3 rounded-lg border border-stone-200 dark:border-stone-800 text-stone-700 dark:text-stone-300 font-medium hover:bg-stone-100 dark:hover:bg-stone-800 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 Cancel
               </button>
               <button
                 type="submit"
-                class="flex-1 px-6 py-3 rounded-lg bg-primary text-white font-medium hover:bg-primary/90 transition-colors"
+                :disabled="formLoading"
+                class="flex-1 px-6 py-3 rounded-lg bg-primary text-white font-medium hover:bg-primary/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
               >
-                {{ modalMode === 'create' ? 'Create Product' : 'Update Product' }}
+                <span v-if="formLoading" class="material-symbols-outlined animate-spin"
+                  >refresh</span
+                >
+                <span>{{ modalMode === 'create' ? 'Create Product' : 'Update Product' }}</span>
               </button>
             </div>
           </form>
