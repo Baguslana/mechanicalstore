@@ -3,6 +3,8 @@ import { useAdminStore } from '../stores/admin'
 import HomeView from '../views/HomeView.vue'
 import ProductsView from '../views/ProductsView.vue'
 import ProductDetailView from '../views/ProductDetailView.vue'
+import CheckoutView from '../views/CheckoutView.vue'
+import OrderSuccessView from '../views/OrderSuccessView.vue'
 import AdminLoginView from '../views/AdminLoginView.vue'
 import AdminLayout from '../views/AdminLayout.vue'
 import AdminProductsView from '../views/AdminProductsView.vue'
@@ -26,6 +28,16 @@ const router = createRouter({
       component: ProductDetailView,
     },
     {
+      path: '/checkout',
+      name: 'checkout',
+      component: CheckoutView,
+    },
+    {
+      path: '/order-success/:orderNumber',
+      name: 'order-success',
+      component: OrderSuccessView,
+    },
+    {
       path: '/admin/login',
       name: 'admin-login',
       component: AdminLoginView,
@@ -45,6 +57,12 @@ const router = createRouter({
           component: AdminProductsView,
           meta: { title: 'Products Management' },
         },
+        // {
+        //   path: 'orders',
+        //   name: 'admin-orders',
+        //   component: () => import('../views/AdminOrdersView.vue'),
+        //   meta: { title: 'Orders Management' },
+        // },
         // {
         //   path: 'categories',
         //   name: 'admin-categories',

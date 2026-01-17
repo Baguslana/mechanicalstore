@@ -26,23 +26,30 @@ const loadProduct = async () => {
 
   try {
     const slug = route.params.slug
-    const data = await productsApi.getBySlug(slug, { includeRelated: true })
-    product.value = data
+    const response = await productsApi.getBySlug(slug, { includeRelated: true })
 
-    // Load related products (same category)
-    if (data.category) {
+    // PERBAIKAN: Ambil properti 'data' dari response API
+    // Karena JSON Anda strukturnya adalah { data: { id: 1, name: "...", ... } }
+    product.value = response.data
+
+    // Load related products dari data yang sudah ada di response (jika tersedia)
+    if (response.data.related_products) {
+      relatedProducts.value = response.data.related_products
+    } else if (product.value.category) {
+      // Fallback ke pencarian manual jika related_products tidak disertakan oleh API
       const allProducts = await productsApi.getAll({
-        category: data.category.name,
+        category: product.value.category.name,
         inStockOnly: true,
       })
       relatedProducts.value = (Array.isArray(allProducts) ? allProducts : allProducts.data || [])
-        .filter((p) => p.id !== data.id)
+        .filter((p) => p.id !== product.value.id)
         .slice(0, 4)
     }
   } catch (err) {
     console.error('Error loading product:', err)
     error.value = 'Product not found'
   } finally {
+    // Pastikan loading menjadi false agar skeleton screen menghilang
     loading.value = false
   }
 }
